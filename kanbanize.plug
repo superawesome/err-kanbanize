@@ -1,0 +1,9 @@
+[Core]
+Name = Kanbanize
+Module = Kanbanize
+
+[Python]
+Version = 2+
+
+[Documentation]
+Description = Plugin to read/write from kanbanize.com
