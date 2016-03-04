@@ -31,7 +31,7 @@ class Kanbanize(BotPlugin):
         for i in tasks:
             if i['lanename'] == 'Expedited' and i['columnname'] != 'Done' and i['assignee'] == "None":  # yeah, it's literally the string "None"
                 retval = True
-                message = "webops: Expedited bug: %s" % i['title']
+                message = "webops: Expedited bug: %s" % i['extlink']
                 self.send(self.config['CHANNEL'], message, message_type='groupchat')
 
         # return whether we printed anything - used by the command to run the check on-demand
