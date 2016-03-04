@@ -2,36 +2,42 @@ from errbot import BotPlugin, botcmd, re_botcmd
 import re
 import time
 import requests
+import json
+
 
 class Kanbanize(BotPlugin):
-    pass
-#    @re_botcmd(pattern=r"^(.*)#cl$", prefixed=False, flags=re.IGNORECASE)
-#    def something(self, msg, match):
-#        """put something into the changelog"""
-#
-#        # -d "{\"criticality\": 2, \"unix_timestamp\": $WHEN, \"category\": \"puppet\", \"description\": \"$REPO; $REV; $WHODUNIT; $i\"}"
-#
-#        cl_message = match.group(1).strip()
-#        data = {
-#                'criticality': 2,
-#                'unix_timestamp': int(time.time()),
-#                'category': 'irc',
-#                'description': msg.frm.nick + ': ' + cl_message
-#        }
-#        headers = {
-#                'Content-Type': 'application/json'
-#        }
-#        r = requests.post("https://changelog.allizom.org/api/events", headers=headers, json=data)
-#        #munged_name = msg.frm.nick[:1] + '\x030' + msg.frm.nick[1:]  # doesn't work, prints a 0 in the name ... how to do this?
-#        munged_name = msg.frm.nick  # do nothing for now
-#        self.send('#cl', "<%s> %s" % (munged_name, cl_message), message_type='groupchat')
-#        # return "from %s: %s" % (msg.frm.nick, cl_message)
+    def get_configuration_template(self):
+        return {'SUBDOMAIN': u'', 'APIKEY': u'', 'BOARDID': 1, 'CHANNEL': u''}
+
+
+    @botcmd
+    def expedited(self, msg, args):
+        bugs_found = self.check_expedited()
+        if bugs_found == False:
+            return "0 unassigned, unfinished expedited bugs found! w00t!"
+        else:
+            return None
 
 
     def check_expedited(self):
-        self.log.debug("This is where I should be checking the expedited lane in kanbanize.com and spewing stuff into #webops")
+        # get Kanbanize bugs
+        headers = {'apikey': self.config['APIKEY'], 'Content-Type': 'application/json'}
+        data = { 'boardid': self.config['BOARDID'] }
+        r = requests.post('https://%s.kanbanize.com/api/kanbanize/get_all_tasks/format/json' % self.config['SUBDOMAIN'], headers=headers, data=json.dumps(data))
+        tasks = r.json()
+
+        # print the ones that are in the Expedited lane, not done, and not assigned
+        retval = False
+        for i in tasks:
+            if i['lanename'] == 'Expedited' and i['columnname'] != 'Done' and i['assignee'] == "None":  # yeah, it's literally the string "None"
+                retval = True
+                message = "webops: Expedited bug: %s" % i['title']
+                self.send(self.config['CHANNEL'], message, message_type='groupchat')
+
+        # return whether we printed anything - used by the command to run the check on-demand
+        return retval
 
 
     def activate(self):
         super(Kanbanize, self).activate()
-        self.start_poller(60, self.check_expedited)
+        self.start_poller(600, self.check_expedited)
